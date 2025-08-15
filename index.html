@@ -105,6 +105,7 @@
             display: flex;
             align-items: center;
             transition: background-color 0.2s;
+            cursor: pointer;
         }
         
         .gift-item:last-child {
@@ -149,8 +150,102 @@
             color: #999;
         }
         
+        /* NFT Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 50px auto;
+            padding: 25px;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: 500;
+            margin: 0;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+        
+        .nft-details {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .nft-image-container {
+            text-align: center;
+        }
+        
+        .nft-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 10px;
+            object-fit: contain;
+        }
+        
+        .nft-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .info-item {
+            margin-bottom: 10px;
+        }
+        
+        .info-label {
+            font-weight: 500;
+            color: #666;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .info-value {
+            word-break: break-all;
+        }
+        
         .hidden {
             display: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+        
+        .error {
+            color: #ff4444;
+            margin-top: 10px;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -163,15 +258,16 @@
         
         <div class="input-section">
             <div class="input-group">
-                <input type="text" id="gift-link" placeholder="Paste Telegram NFT gift link here...">
+                <input type="text" id="gift-link" placeholder="Paste OpenSea or Rarible NFT link...">
                 <button id="add-gift">Add</button>
             </div>
+            <div id="error-message" class="error hidden"></div>
         </div>
         
         <div class="gifts-list" id="gifts-container">
             <div class="empty-state" id="empty-state">
                 <p>No NFT gifts added yet</p>
-                <p>Paste a Telegram NFT gift link above to start tracking</p>
+                <p>Paste an NFT link above to start tracking</p>
             </div>
             
             <!-- Example gift item (hidden by default) -->
@@ -179,9 +275,59 @@
                 <img src="" class="gift-image" alt="NFT">
                 <div class="gift-info">
                     <div class="gift-name">NFT Name</div>
-                    <div class="gift-sender">From: @username</div>
-                    <div class="gift-date">Received: 15 Aug 2023</div>
+                    <div class="gift-sender">Collection: Unknown</div>
+                    <div class="gift-date">Added: Just now</div>
                 </div>
+            </div>
+            
+            <div class="loading hidden" id="loading">
+                <p>Loading NFT data...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- NFT Details Modal -->
+    <div class="modal" id="nft-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-title">NFT Details</h2>
+                <button class="close-modal" id="close-modal">&times;</button>
+            </div>
+            <div class="nft-details" id="nft-details">
+                <div class="nft-image-container">
+                    <img src="" class="nft-image" id="modal-nft-image" alt="NFT">
+                </div>
+                <div class="nft-info">
+                    <div class="info-item">
+                        <div class="info-label">Name</div>
+                        <div class="info-value" id="modal-nft-name">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Collection</div>
+                        <div class="info-value" id="modal-nft-collection">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Contract Address</div>
+                        <div class="info-value" id="modal-nft-contract">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Token ID</div>
+                        <div class="info-value" id="modal-nft-token">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Blockchain</div>
+                        <div class="info-value" id="modal-nft-chain">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Added</div>
+                        <div class="info-value" id="modal-nft-date">-</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Description</div>
+                    <div class="info-value" id="modal-nft-description">No description available</div>
+                </div>
+                <a href="#" target="_blank" id="modal-nft-link" class="button" style="display: inline-block; margin-top: 20px; background-color: var(--tg-primary); color: white; padding: 10px 15px; border-radius: 5px; text-decoration: none;">View on Marketplace</a>
             </div>
         </div>
     </div>
@@ -193,6 +339,22 @@
             const giftsContainer = document.getElementById('gifts-container');
             const emptyState = document.getElementById('empty-state');
             const giftTemplate = document.getElementById('gift-template');
+            const loadingElement = document.getElementById('loading');
+            const errorElement = document.getElementById('error-message');
+            
+            // Modal elements
+            const modal = document.getElementById('nft-modal');
+            const closeModal = document.getElementById('close-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalImage = document.getElementById('modal-nft-image');
+            const modalName = document.getElementById('modal-nft-name');
+            const modalCollection = document.getElementById('modal-nft-collection');
+            const modalContract = document.getElementById('modal-nft-contract');
+            const modalToken = document.getElementById('modal-nft-token');
+            const modalChain = document.getElementById('modal-nft-chain');
+            const modalDate = document.getElementById('modal-nft-date');
+            const modalDescription = document.getElementById('modal-nft-description');
+            const modalLink = document.getElementById('modal-nft-link');
             
             // Load saved gifts from localStorage
             loadGifts();
@@ -201,57 +363,149 @@
                 const link = giftLinkInput.value.trim();
                 if (link) {
                     addGift(link);
-                    giftLinkInput.value = '';
                 }
             });
             
-            function addGift(link) {
-                // In a real app, you would parse the NFT gift link here
-                // and extract the NFT metadata from Telegram/blockchain
+            // Allow pressing Enter in the input field
+            giftLinkInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const link = giftLinkInput.value.trim();
+                    if (link) {
+                        addGift(link);
+                    }
+                }
+            });
+            
+            // Close modal when clicking X or outside
+            closeModal.addEventListener('click', function() {
+                modal.style.display = 'none';
+            });
+            
+            window.addEventListener('click', function(event) {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+            
+            async function addGift(link) {
+                // Show loading state
+                loadingElement.classList.remove('hidden');
+                errorElement.classList.add('hidden');
                 
-                // For demo purposes, we'll use mock data
-                const mockData = {
-                    name: "CryptoPunk #" + Math.floor(Math.random() * 10000),
-                    sender: "@user" + Math.floor(Math.random() * 1000),
-                    image: "https://via.placeholder.com/150",
-                    date: new Date().toLocaleDateString('en-US', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric'
-                    }),
-                    link: link
-                };
+                try {
+                    // Extract NFT data from the link
+                    const nftData = await fetchNFTData(link);
+                    
+                    // Hide empty state if it's the first gift
+                    if (emptyState.style.display !== 'none') {
+                        emptyState.style.display = 'none';
+                    }
+                    
+                    // Create new gift element
+                    const newGift = giftTemplate.cloneNode(true);
+                    newGift.classList.remove('hidden');
+                    newGift.querySelector('.gift-image').src = nftData.image_url || 'https://via.placeholder.com/150';
+                    newGift.querySelector('.gift-name').textContent = nftData.name || 'Unnamed NFT';
+                    newGift.querySelector('.gift-sender').textContent = "Collection: " + (nftData.collection || 'Unknown');
+                    newGift.querySelector('.gift-date').textContent = "Added: Just now";
+                    newGift.dataset.nftId = nftData.id;
+                    newGift.dataset.nftData = JSON.stringify(nftData);
+                    
+                    // Add click handler to show details
+                    newGift.addEventListener('click', function() {
+                        showNFTDetails(nftData);
+                    });
+                    
+                    // Add to the beginning of the list
+                    giftsContainer.insertBefore(newGift, loadingElement);
+                    
+                    // Save to localStorage
+                    saveGifts();
+                    
+                    // Clear input
+                    giftLinkInput.value = '';
+                } catch (error) {
+                    console.error('Error adding NFT:', error);
+                    errorElement.textContent = 'Error: ' + error.message;
+                    errorElement.classList.remove('hidden');
+                } finally {
+                    loadingElement.classList.add('hidden');
+                }
+            }
+            
+            async function fetchNFTData(url) {
+                // Extract contract address and token ID from OpenSea/Rarible links
+                let contractAddress, tokenId, chain = 'ethereum';
                 
-                // Hide empty state if it's the first gift
-                if (emptyState.style.display !== 'none') {
-                    emptyState.style.display = 'none';
+                // OpenSea link format: https://opensea.io/assets/ethereum/0x.../123
+                const openseaRegex = /opensea\.io\/assets\/([a-z]+)\/(0x[a-fA-F0-9]{40})\/([0-9]+)/i;
+                const openseaMatch = url.match(openseaRegex);
+                
+                // Rarible link format: https://rarible.com/token/0x...:123
+                const raribleRegex = /rarible\.com\/token\/(0x[a-fA-F0-9]{40}):([0-9]+)/i;
+                const raribleMatch = url.match(raribleRegex);
+                
+                if (openseaMatch) {
+                    chain = openseaMatch[1];
+                    contractAddress = openseaMatch[2];
+                    tokenId = openseaMatch[3];
+                } else if (raribleMatch) {
+                    contractAddress = raribleMatch[1];
+                    tokenId = raribleMatch[2];
+                } else {
+                    throw new Error('Unsupported NFT link format. Please use OpenSea or Rarible links.');
                 }
                 
-                // Create new gift element
-                const newGift = giftTemplate.cloneNode(true);
-                newGift.classList.remove('hidden');
-                newGift.querySelector('.gift-image').src = mockData.image;
-                newGift.querySelector('.gift-name').textContent = mockData.name;
-                newGift.querySelector('.gift-sender').textContent = "From: " + mockData.sender;
-                newGift.querySelector('.gift-date').textContent = "Received: " + mockData.date;
+                // Use OpenSea API to fetch NFT details
+                const apiUrl = `https://api.opensea.io/api/v2/chain/${chain}/contract/${contractAddress}/nfts/${tokenId}`;
                 
-                // Add to the beginning of the list
-                giftsContainer.insertBefore(newGift, emptyState.nextSibling);
+                const response = await fetch(apiUrl, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-API-KEY': 'your-opensea-api-key' // Replace with your actual API key
+                    }
+                });
                 
-                // Save to localStorage
-                saveGifts();
+                if (!response.ok) {
+                    throw new Error('Failed to fetch NFT data from OpenSea');
+                }
+                
+                const data = await response.json();
+                
+                return {
+                    id: `${contractAddress}-${tokenId}`,
+                    name: data.nft.name || `#${tokenId}`,
+                    image_url: data.nft.image_url,
+                    collection: data.nft.collection?.name || 'Unknown',
+                    contract_address: contractAddress,
+                    token_id: tokenId,
+                    chain: chain,
+                    description: data.nft.description || 'No description',
+                    opensea_link: `https://opensea.io/assets/${chain}/${contractAddress}/${tokenId}`,
+                    added_date: new Date().toLocaleString()
+                };
+            }
+            
+            function showNFTDetails(nftData) {
+                modalTitle.textContent = nftData.name || 'NFT Details';
+                modalImage.src = nftData.image_url || 'https://via.placeholder.com/150';
+                modalName.textContent = nftData.name || `#${nftData.token_id}`;
+                modalCollection.textContent = nftData.collection || 'Unknown';
+                modalContract.textContent = nftData.contract_address || '-';
+                modalToken.textContent = nftData.token_id || '-';
+                modalChain.textContent = nftData.chain ? nftData.chain.toUpperCase() : 'Ethereum';
+                modalDate.textContent = nftData.added_date || 'Just now';
+                modalDescription.textContent = nftData.description || 'No description available';
+                modalLink.href = nftData.opensea_link || '#';
+                
+                modal.style.display = 'block';
             }
             
             function saveGifts() {
                 const gifts = [];
                 document.querySelectorAll('.gift-item:not(#gift-template)').forEach(item => {
-                    gifts.push({
-                        name: item.querySelector('.gift-name').textContent,
-                        sender: item.querySelector('.gift-sender').textContent.replace('From: ', ''),
-                        image: item.querySelector('.gift-image').src,
-                        date: item.querySelector('.gift-date').textContent.replace('Received: ', ''),
-                        link: item.dataset.link || ''
-                    });
+                    const nftData = JSON.parse(item.dataset.nftData || '{}');
+                    gifts.push(nftData);
                 });
                 localStorage.setItem('nftGifts', JSON.stringify(gifts));
             }
@@ -263,12 +517,18 @@
                     savedGifts.forEach(gift => {
                         const newGift = giftTemplate.cloneNode(true);
                         newGift.classList.remove('hidden');
-                        newGift.querySelector('.gift-image').src = gift.image;
-                        newGift.querySelector('.gift-name').textContent = gift.name;
-                        newGift.querySelector('.gift-sender').textContent = "From: " + gift.sender;
-                        newGift.querySelector('.gift-date').textContent = "Received: " + gift.date;
-                        newGift.dataset.link = gift.link;
-                        giftsContainer.insertBefore(newGift, emptyState.nextSibling);
+                        newGift.querySelector('.gift-image').src = gift.image_url || 'https://via.placeholder.com/150';
+                        newGift.querySelector('.gift-name').textContent = gift.name || 'Unnamed NFT';
+                        newGift.querySelector('.gift-sender').textContent = "Collection: " + (gift.collection || 'Unknown');
+                        newGift.querySelector('.gift-date').textContent = "Added: " + (gift.added_date || 'Unknown date');
+                        newGift.dataset.nftId = gift.id;
+                        newGift.dataset.nftData = JSON.stringify(gift);
+                        
+                        newGift.addEventListener('click', function() {
+                            showNFTDetails(gift);
+                        });
+                        
+                        giftsContainer.insertBefore(newGift, loadingElement);
                     });
                 }
             }
